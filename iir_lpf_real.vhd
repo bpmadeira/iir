@@ -125,7 +125,7 @@ begin
             	output <= iir_input + a1_m + a2_m;     
             	
             	y_1 <= shift_right(output,FRAC_WIDTH);
-            y_2 <= y_1;      	
+            	y_2 <= y_1;      	
            	 
            	 
         	end if;
