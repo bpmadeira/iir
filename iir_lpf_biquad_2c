@@ -1,0 +1,118 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+use ieee.NUMERIC_STD.ALL;   
+
+
+entity iir_lpf_biquad_2c is
+	generic (
+    	DATA_WIDTH : natural := 32;
+		COEFF_WIDTH: natural := 32;
+    	OUTPUT_WIDTH : natural := 64;
+    	FRAC_WIDTH: natural := 30
+	);
+        
+    port (
+    	data_i_i   : in std_logic_vector(DATA_WIDTH-1 downto 0);
+    	data_en_i  : in std_logic;
+    	data_clk_i : in std_logic;
+    	data_rst_i : in std_logic;
+    	data_i_o   : out std_logic_vector(OUTPUT_WIDTH-1 downto 0);
+    	data_en_o  : out std_logic;
+    	data_clk_o : out std_logic;
+    	data_rst_o : out std_logic;
+    	a1     	: in signed(COEFF_WIDTH-1 downto 0);
+    	a1_en  	: in std_logic;
+    	a1_clk 	: in std_logic;
+    	a1_rst 	: in std_logic;
+    	a2     	: in signed(COEFF_WIDTH-1 downto 0);
+    	a2_en  	: in std_logic;
+    	a2_clk 	: in std_logic;
+    	a2_rst 	: in std_logic;
+    	b0     	: in signed(COEFF_WIDTH-1 downto 0);
+    	b0_en  	: in std_logic;
+    	b0_clk 	: in std_logic;
+    	b0_rst 	: in std_logic;
+    	b1     	: in signed(COEFF_WIDTH-1 downto 0);
+    	b1_en  	: in std_logic;
+    	b1_clk 	: in std_logic;
+    	b1_rst 	: in std_logic;
+    	b2     	: in signed(COEFF_WIDTH-1 downto 0);
+    	b2_en  	: in std_logic;
+    	b2_clk 	: in std_logic;
+    	b2_rst 	: in std_logic
+	);
+end entity iir_lpf_biquad_2c;
+
+architecture bhv of iir_lpf_biquad_2c is
+
+type STATE_TYPE is (idle, sum);
+
+constant MUL_WIDTH : integer := COEFF_WIDTH + DATA_WIDTH;
+constant MUL_A_WIDTH : integer := COEFF_WIDTH + MUL_WIDTH;
+
+signal state : STATE_TYPE;
+signal b0_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+signal b1_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+signal b2_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+signal a1_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+signal a2_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+-- PRE GAIN REGISTERS
+signal nZX0,nZX1,nZX2 : signed(DATA_WIDTH-1 downto 0) := (others => '0');
+
+-- POST GAIN REGISTERS
+signal nGB0,nGB1,nGB2,nGA1,nGA2 : signed(MUL_WIDTH downto 0) := (others => '0');
+signal nZY1,nZY2 : signed(DATA_WIDTH-1 downto 0) := (others => '0');
+-- POST GAIN DIVIDED REGISTERS
+-- signal nDX0,nDX1,nDX2,nDY1,nDY2 : signed(DATA_WIDTH+3+QFORMAT/2 downto 0) := (others => '0');
+-- OUTPUT / FEEDBACK REGISTER
+
+begin
+
+process(data_clk_i,data_rst_i)
+begin
+    if(rising_edge(data_clk_i)) then
+        if(data_rst_i = '0') then
+            nZX0                <= (others => '0');
+            nZX1                <= (others => '0');
+            nZX2                <= (others => '0');
+            nZY1                <= (others => '0');
+            nZY2                <= (others => '0');
+            nGB0                <= (others => '0');
+            nGB1                <= (others => '0');
+            nGB2                <= (others => '0');
+            nGA1                <= (others => '0');
+            nGA2                <= (others => '0');
+            -- nYOUT               <= (others => '0');
+        else
+            data_i_o         <= resize(SHIFT_RIGHT(nZY1, FRAC_WIDTH), OUTPUT_WIDTH);
+            case state is 
+                when idle =>
+                    data_en_o       <= '0';
+                    if(data_en_i = '1') then
+    --                  Shift Values into registers, include 4 guard bits to IIR Input
+                        nZX0    <= resize(data_i_i, nZX0'LENGTH);
+                        nZX1    <= nZX0;
+                        nZX2    <= nZX1;
+
+                        nGB0    <= RESIZE( SHIFT_RIGHT(b0_i * nZX0, FRAC_WIDTH), nGB0'LENGTH);
+                        nGB1    <= RESIZE( SHIFT_RIGHT(b1_i * nZX1, FRAC_WIDTH), nGB1'LENGTH);
+                        nGB2    <= RESIZE( SHIFT_RIGHT(b2_i * nZX2, FRAC_WIDTH), nGB2'LENGTH);
+                        nGA1    <= RESIZE( SHIFT_RIGHT(a1_i * nZY1, FRAC_WIDTH), nGA1'LENGTH);
+                        nGA2    <= RESIZE( SHIFT_RIGHT(a2_i * nZY2, FRAC_WIDTH), nGA2'LENGTH);
+                        state   <= sum;
+                    end if;
+                    
+                when sum =>
+                --  Create sum for Output and feedback path
+                        -- nYOUT   <= nGB0+nGB1+nGB2-nGA1-nGA2;
+                        nZY1    <= nGB0+nGB1+nGB2-nGA1-nGA2;
+                        nZY2    <= nZY1;
+                        data_en_o   <= '1';
+                        state   <= idle;
+                when others =>
+                    state       <= idle;
+            end case;
+        end if;
+    end if;
+end process;
+end architecture;
