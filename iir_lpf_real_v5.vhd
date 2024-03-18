@@ -97,7 +97,7 @@ begin
             	x_2 <= x_1; -- 32b
         end if;
     end if;
-    end process B_Register;
+    end process X_Register;
 
     Y_Register: process(data_clk_i, data_rst_i)
     begin
@@ -108,7 +108,7 @@ begin
             	y_2 <= shift_right(y_1,FRAC_WIDTH); 
         end if;
     end if;
-    end process B_Register;
+    end process Y_Register;
             	
             	
     b0_m <= signed(x_0*b0_i); -- 32b * 32b (64b)
