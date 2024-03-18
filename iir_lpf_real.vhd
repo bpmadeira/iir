@@ -83,18 +83,6 @@ architecture bhv of iir_lpf_real is
     
     
 begin
-	data_i_o <= std_logic_vector(shifted_output(OUTPUT_WIDTH - 1 downto 0));
-	test1 <= std_logic_vector(fir_output);
-	test2 <= std_logic_vector(a1_m(OUTPUT_WIDTH - 1 downto 0));
-    data_en_o <= data_en_i;
-    data_clk_o <= data_clk_i;
-	data_rst_o <= data_rst_i;
-	test1_en <= data_en_i;
-	test1_clk <= data_clk_i;
-	test1_rst <= data_rst_i;
-	test2_en <= data_en_i;
-	test2_clk <= data_clk_i;
-	test2_rst <= data_rst_i;
 	
     process(data_clk_i) is
 	   begin
@@ -165,4 +153,16 @@ begin
         	end if;
     	end if;
 	end process;
+
+	data_i_o <= std_logic_vector(shifted_output(OUTPUT_WIDTH - 1 downto 0));
+    	data_en_o <= data_en_i;
+    	data_clk_o <= data_clk_i;
+	data_rst_o <= data_rst_i;
+	test1_en <= data_en_i;
+	test1_clk <= data_clk_i;
+	test1_rst <= data_rst_i;
+	test2_en <= data_en_i;
+	test2_clk <= data_clk_i;
+	test2_rst <= data_rst_i;
+
 end architecture bhv;
