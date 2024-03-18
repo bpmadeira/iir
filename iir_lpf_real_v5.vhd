@@ -89,33 +89,39 @@ begin
 
     X_Register: process(data_clk_i, data_rst_i)
     begin
-    if rising_edge(data_clk_i) then
-        if data_en_i = '1' then
-            	-- Update FIR section
-                x_0 <= signed(data_i_i); -- 32b
-                x_1 <= x_0; -- 32b
-            	x_2 <= x_1; -- 32b
+        if rising_edge(data_clk_i) then
+            if data_rst_i = '1' then
+                x_0 <= (others => '0');
+                x_1 <= (others => '0');
+                x_2 <= (others => '0');
+            elsif data_en_i = '1' then
+                -- Update FIR section
+                x_0 <= signed(data_i_i); -- Convert from std_logic_vector to signed
+                x_1 <= x_0;
+                x_2 <= x_1;
+            end if;
         end if;
-    end if;
     end process X_Register;
 
     Y_Register: process(data_clk_i, data_rst_i)
     begin
-    if rising_edge(data_clk_i) then
-        if data_en_i = '1' then
-            	-- Update IIR section
-                --y_1 <= shift_right(output,FRAC_WIDTH);
-            	y_2 <= shift_right(y_1,FRAC_WIDTH); 
+        if rising_edge(data_clk_i) then
+            if data_rst_i = '1' then
+                y_1 <= (others => '0');
+                y_2 <= (others => '0');
+            elsif data_en_i = '1' then
+                -- Update IIR section
+                y_2 <= y_1; -- Shift operation corrected for reset logic
+            end if;
         end if;
-    end if;
     end process Y_Register;
             	
             	
-    b0_m <= signed(x_0*b0_i); -- 32b * 32b (64b)
-    b1_m <= signed(x_1*b1_i); -- 32b * 32b (64b)
-    b2_m <= signed(x_2*b2_i); -- 32b * 32b (64b)
-    a1_m <= signed(y_1(OUTPUT_WIDTH-1 downto 0)*a1_i);
-    a2_m <= signed(y_2(OUTPUT_WIDTH-1 downto 0)*a2_i);
+    b0_m <= shift_right((x_0*b0_i),FRAC_WIDTH); -- 32b * 32b (64b)
+    b1_m <= shift_right((x_1*b1_i),FRAC_WIDTH); -- 32b * 32b (64b)
+    b2_m <= shift_right((x_2*b2_i),FRAC_WIDTH); -- 32b * 32b (64b)
+    a1_m <= shift_right((y_1(OUTPUT_WIDTH-1 downto 0)*a1_i),FRAC_WIDTH);
+    a2_m <= shift_right((y_2(OUTPUT_WIDTH-1 downto 0)*a2_i),FRAC_WIDTH);
     y_1 <= b0_m + b1_m + b2_m - a1_m - a2_m;
 
     OutRegister : process (data_clk_i, data_rst_i)
@@ -124,7 +130,7 @@ begin
             iir_out <= (others => '0');
         elsif data_clk_i'event AND data_clk_i = '1' then
             if data_en_i = '1' then
-                iir_out <= shift_right(y_1,FRAC_WIDTH);   
+                iir_out <= y_1; 
             end if;
         end if;
     end process OutRegister;
