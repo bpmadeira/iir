@@ -39,13 +39,14 @@ entity iir_lpf_biquad_2c is
     	b2     	: in signed(COEFF_WIDTH-1 downto 0);
     	b2_en  	: in std_logic;
     	b2_clk 	: in std_logic;
-    	b2_rst 	: in std_logic
+    	b2_rst 	: in std_logic;
+    	o_done: out std_logic
 	);
 end entity iir_lpf_biquad_2c;
 
 architecture bhv of iir_lpf_biquad_2c is
 
-type STATE_TYPE is (idle, sum);
+type STATE_TYPE is (idle,shift, sum);
 
 constant MUL_WIDTH : integer := COEFF_WIDTH + DATA_WIDTH;
 constant MUL_A_WIDTH : integer := COEFF_WIDTH + MUL_WIDTH;
@@ -60,17 +61,28 @@ signal a2_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
 signal nZX0,nZX1,nZX2 : signed(DATA_WIDTH-1 downto 0) := (others => '0');
 
 -- POST GAIN REGISTERS
-signal nGB0,nGB1,nGB2,nGA1,nGA2 : signed(MUL_WIDTH downto 0) := (others => '0');
-signal nZY1,nZY2 : signed(DATA_WIDTH-1 downto 0) := (others => '0');
--- POST GAIN DIVIDED REGISTERS
--- signal nDX0,nDX1,nDX2,nDY1,nDY2 : signed(DATA_WIDTH+3+QFORMAT/2 downto 0) := (others => '0');
--- OUTPUT / FEEDBACK REGISTER
+signal nGB0,nGB1,nGB2,nGA1,nGA2 : signed(MUL_WIDTH-1 downto 0) := (others => '0');
+signal nZY1,nZY2 : signed(MUL_WIDTH-1 downto 0) := (others => '0');
+
+attribute dont_touch : string;
+
+-- Apply the dont_touch attribute to specific signals
+attribute dont_touch of nZX0 : signal is "true";
+attribute dont_touch of nZX1 : signal is "true";
+attribute dont_touch of nZX2 : signal is "true";
+attribute dont_touch of nZY1 : signal is "true";
+attribute dont_touch of nZY2 : signal is "true";
+attribute dont_touch of nGB0 : signal is "true";
+attribute dont_touch of nGB1 : signal is "true";
+attribute dont_touch of nGB2 : signal is "true";
+attribute dont_touch of nGA1 : signal is "true";
+attribute dont_touch of nGA2 : signal is "true";
 
 begin
 
-process(data_clk_i,data_rst_i)
+process(data_clk_i)
 begin
-    if(rising_edge(data_clk_i)) then
+    if rising_edge(data_clk_i) then
         if(data_rst_i = '0') then
             nZX0                <= (others => '0');
             nZX1                <= (others => '0');
@@ -82,35 +94,55 @@ begin
             nGB2                <= (others => '0');
             nGA1                <= (others => '0');
             nGA2                <= (others => '0');
-            -- nYOUT               <= (others => '0');
         else
-            data_i_o         <= resize(SHIFT_RIGHT(nZY1, FRAC_WIDTH), OUTPUT_WIDTH);
+            -- Coefficients Load
+        	if a1_en = '1' then
+            	a1_i <= a1;
+        	end if;
+        	if a2_en = '1' then
+            	a2_i <= a2;
+        	end if;
+        	if b0_en = '1' then
+            	b0_i <= b0;
+        	end if;
+        	if b1_en = '1' then
+            	b1_i <= b1;
+        	end if;
+        	if b2_en = '1' then
+            	b2_i <= b2;
+        	end if;
+            data_i_o <= std_logic_vector(nZY1);
+            data_clk_o <= data_clk_i;
+            data_rst_o <= data_rst_i;
             case state is 
                 when idle =>
-                    data_en_o       <= '0';
+                    --data_en_o       <= '0';
                     if(data_en_i = '1') then
     --                  Shift Values into registers, include 4 guard bits to IIR Input
-                        nZX0    <= resize(data_i_i, nZX0'LENGTH);
-                        nZX1    <= nZX0;
-                        nZX2    <= nZX1;
-
-                        nGB0    <= RESIZE( SHIFT_RIGHT(b0_i * nZX0, FRAC_WIDTH), nGB0'LENGTH);
-                        nGB1    <= RESIZE( SHIFT_RIGHT(b1_i * nZX1, FRAC_WIDTH), nGB1'LENGTH);
-                        nGB2    <= RESIZE( SHIFT_RIGHT(b2_i * nZX2, FRAC_WIDTH), nGB2'LENGTH);
-                        nGA1    <= RESIZE( SHIFT_RIGHT(a1_i * nZY1, FRAC_WIDTH), nGA1'LENGTH);
-                        nGA2    <= RESIZE( SHIFT_RIGHT(a2_i * nZY2, FRAC_WIDTH), nGA2'LENGTH);
-                        state   <= sum;
+                        nZX0    <= signed(data_i_i); -- 32 bits
+                        nZX1    <= nZX0; -- 32 bits
+                        nZX2    <= nZX1; -- 32 bits
+                        --nGB0    <= RESIZE( SHIFT_RIGHT(b0_i * nZX0, FRAC_WIDTH), nGB0'LENGTH); -- 32*32
+                        --nGB1    <= RESIZE( SHIFT_RIGHT(b1_i * nZX1, FRAC_WIDTH), nGB1'LENGTH); -- 32*32
+                        --nGB2    <= RESIZE( SHIFT_RIGHT(b2_i * nZX2, FRAC_WIDTH), nGB2'LENGTH);
+                        --nGA1    <= RESIZE( SHIFT_RIGHT(a1_i * nZY1, FRAC_WIDTH), nGA1'LENGTH);
+                        --nGA2    <= RESIZE( SHIFT_RIGHT(a2_i * nZY2, FRAC_WIDTH), nGA2'LENGTH);
+                        state   <= shift;
                     end if;
-                    
+                when shift =>
+                        nGB0    <= SHIFT_RIGHT(b0_i * nZX0, FRAC_WIDTH); -- 32*32
+                        nGB1    <= SHIFT_RIGHT(b1_i * nZX1, FRAC_WIDTH); -- 32*32
+                        nGB2    <= SHIFT_RIGHT(b2_i * nZX2, FRAC_WIDTH); -- 32*32
+                        nGA1    <= SHIFT_RIGHT(a1_i * nZY1, FRAC_WIDTH)(63 downto 0); -- 32*32
+                        nGA2    <= SHIFT_RIGHT(a2_i * nZY2, FRAC_WIDTH)(63 downto 0); -- 32*32
+                        state <= sum;
                 when sum =>
-                --  Create sum for Output and feedback path
-                        -- nYOUT   <= nGB0+nGB1+nGB2-nGA1-nGA2;
-                        nZY1    <= nGB0+nGB1+nGB2-nGA1-nGA2;
-                        nZY2    <= nZY1;
-                        data_en_o   <= '1';
-                        state   <= idle;
+                        nZY1 <= nGB0+nGB1+nGB2-nGA1-nGA2;
+                        nZY2 <= nZY1;
+                        data_en_o <= '1';
+                        state <= idle;
                 when others =>
-                    state       <= idle;
+                    state <= idle;
             end case;
         end if;
     end if;
