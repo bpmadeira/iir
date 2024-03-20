@@ -80,6 +80,21 @@ begin
                 data_i_o <= (others => '0');
                 data_en_o <= '0';
             else
+                if a1_en = '1' then
+                	a1_i <= a1;
+            	end if;
+            	if a2_en = '1' then
+                	a2_i <= a2;
+            	end if;
+            	if b0_en = '1' then
+                	b0_i <= b0;
+            	end if;
+            	if b1_en = '1' then
+                	b1_i <= b1;
+            	end if;
+            	if b2_en = '1' then
+                	b2_i <= b2;
+            	end if;
                 case state is
                     when idle =>
                         data_en_o <= '0'; -- Reset enable output
@@ -98,21 +113,23 @@ begin
 
                     when truncate =>
 
-                        nGB0 <= resize(b0 * nZX0), nGB0'length);
-                        nGB1 <= resize(b1 * nZX1, nGB1'length);
-                        nGB2 <= resize(b2 * nZX2, nGB2'length);
-                        nGA1 <= resize(a1 * nZX1, nGA1'length);
-                        nGA2 <= resize(a2 * nZX2, nGA2'length);
+                        nGB0 <= shift_right(b0 * nZX0), FRAC_WIDTH);
+                        nGB1 <= shift_right(b1 * nZX1, FRAC_WIDTH);
+                        nGB2 <= shift_right(b2 * nZX2, FRAC_WIDTH);
+                        nGA1 <= shift_right(a1 * nZX1, FRAC_WIDTH);
+                        nGA2 <= shift_right(a2 * nZX2, FRAC_WIDTH);
                         state <= sum1;
 
                     when sum1 =>
                         -- Sum up the products, accounting for feedback
-                        nYOUT <= nGB0 + nGB1 + nGB2 - nGA1 - nGA2;
+                        nYOUT <= std_logic_vector(signed(nGB0) + signed(nGB1) + signed(nGB2) - signed(nGA1) - signed(nGA2));
                         state <= done;
 
                     when done =>
                         -- Assign the computed value to the output
-                        data_i_o <= std_logic_vector(nYOUT);
+                        data_i_o <= nYOUT(OUTPUT_WIDTH-1 downto 0);
+                        nZY1     <= nYOUT;
+                        nZY2     <= nZY1;
                         data_en_o <= '1'; -- Signal that output is valid
                         state <= idle; -- Ready for the next input
 
