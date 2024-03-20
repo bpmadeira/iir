@@ -1,0 +1,119 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+USE ieee.numeric_std.ALL;
+
+entity iir_lpf_biquad_2c is
+    generic (
+        DATA_WIDTH : natural := 32;
+        COEFF_WIDTH: natural := 32;
+        OUTPUT_WIDTH : natural := 64;
+        FRAC_WIDTH: natural := 30
+    );
+    port (
+        data_i_i   : in std_logic_vector(DATA_WIDTH-1 downto 0);
+        data_en_i  : in std_logic;
+        data_clk_i : in std_logic;
+        data_rst_i : in std_logic;
+        data_i_o   : out std_logic_vector(OUTPUT_WIDTH-1 downto 0);
+        data_en_o  : out std_logic;
+        data_clk_o : out std_logic;
+        data_rst_o : out std_logic;
+        a1         : in signed(COEFF_WIDTH-1 downto 0);
+        a1_en      : in std_logic;
+        a1_clk     : in std_logic;
+        a1_rst     : in std_logic;
+        a2         : in signed(COEFF_WIDTH-1 downto 0);
+        a2_en      : in std_logic;
+        a2_clk     : in std_logic;
+        a2_rst     : in std_logic;
+        b0         : in signed(COEFF_WIDTH-1 downto 0);
+        b0_en      : in std_logic;
+        b0_clk     : in std_logic;
+        b0_rst     : in std_logic;
+        b1         : in signed(COEFF_WIDTH-1 downto 0);
+        b1_en      : in std_logic;
+        b1_clk     : in std_logic;
+        b1_rst     : in std_logic;
+        b2         : in signed(COEFF_WIDTH-1 downto 0);
+        b2_en      : in std_logic;
+        b2_clk     : in std_logic;
+        b2_rst     : in std_logic;
+        o_done     : out std_logic
+    );
+end iir_lpf_biquad_2c;
+
+architecture bhv of iir_lpf_biquad_2c is
+    type STATE_TYPE is (idle, truncate, sum1, done);
+    signal state : STATE_TYPE;
+
+    -- Input and coefficient signals
+    signal nZX0, nZX1, nZX2: signed(DATA_WIDTH-1 downto 0) := (others => '0');
+
+    -- Intermediate computation signals
+    signal nGB0, nGB1, nGB2, nGA1, nGA2: signed(OUTPUT_WIDTH-1 downto 0) := (others => '0');
+
+    -- Final output signal
+    signal nYOUT: signed(OUTPUT_WIDTH-1 downto 0) := (others => '0');
+
+begin
+    process(data_clk_i)
+    begin
+        if rising_edge(data_clk_i) then
+            if data_rst_i = '0' then
+                -- Reset logic
+                state <= idle;
+                nZX0 <= (others => '0');
+                nZX1 <= (others => '0');
+                nZX2 <= (others => '0');
+                nGB0 <= (others => '0');
+                nGB1 <= (others => '0');
+                nGB2 <= (others => '0');
+                nGA1 <= (others => '0');
+                nGA2 <= (others => '0');
+                nYOUT <= (others => '0');
+                data_i_o <= (others => '0');
+                data_en_o <= '0';
+                o_done <= '0';
+            else
+                case state is
+                    when idle =>
+                        data_en_o <= '0'; -- Reset enable output
+                        if data_en_i = '1' then
+                            -- Load the input data
+                            nZX0 <= signed(data_i_i); -- Load current input
+                            nZX1 <= nZX0;              -- Shift previous inputs
+                            nZX2 <= nZX1;
+                            state <= truncate;
+                        end if;
+
+                    when truncate =>
+
+                        nGB0 <= resize(shift_right(b0 * nZX0,FRAC_WIDTH), nGB0'length);
+                        nGB1 <= resize(b1 * nZX1, nGB1'length);
+                        nGB2 <= resize(b2 * nZX2, nGB2'length);
+                        nGA1 <= resize(a1 * nZX1, nGA1'length);
+                        nGA2 <= resize(a2 * nZX2, nGA2'length);
+                        state <= sum1;
+
+                    when sum1 =>
+                        -- Sum up the products, accounting for feedback
+                        nYOUT <= nGB0 + nGB1 + nGB2 - nGA1 - nGA2;
+                        state <= done;
+
+                    when done =>
+                        -- Assign the computed value to the output
+                        data_i_o <= std_logic_vector(nYOUT);
+                        data_en_o <= '1'; -- Signal that output is valid
+                        state <= idle; -- Ready for the next input
+
+                    when others =>
+                        state <= idle;
+                end case;
+            end if;
+        end if;
+    end process;
+
+    
+    data_clk_o <= data_clk_i;
+    data_rst_o <= data_rst_i;
+end architecture bhv;
