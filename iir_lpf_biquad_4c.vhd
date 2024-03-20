@@ -49,6 +49,7 @@ architecture bhv of iir_lpf_biquad_2c is
 
     -- Input and coefficient signals
     signal nZX0, nZX1, nZX2: signed(DATA_WIDTH-1 downto 0) := (others => '0');
+    signal nZY1, nZY2: signed(MUL_WIDTH-1 downto 0) := (others => '0');
     signal b0_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
     signal b1_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
     signal b2_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
@@ -56,10 +57,11 @@ architecture bhv of iir_lpf_biquad_2c is
     signal a2_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
 
     -- Intermediate computation signals
-    signal nGB0, nGB1, nGB2, nGA1, nGA2: signed(OUTPUT_WIDTH-1 downto 0) := (others => '0');
+    signal nGB0, nGB1, nGB2, nGA1, nGA2: signed(MUL_A_WIDTH-1 downto 0) := (others => '0');
+    signal nSB0, nSB1, nSB2, nSA1, nSA2: signed(MUL_A_WIDTH-1 downto 0) := (others => '0');
 
     -- Final output signal
-    signal nYOUT: signed(OUTPUT_WIDTH-1 downto 0) := (others => '0');
+    signal nYOUT: std_logic_vector(MUL_A_WIDTH-1 downto 0) := (others => '0');
 
 begin
     process(data_clk_i)
@@ -103,32 +105,32 @@ begin
                             nZX0 <= signed(data_i_i); -- Load current input
                             nZX1 <= nZX0;              -- Shift previous inputs
                             nZX2 <= nZX1;
-                            nGB0 <= resize(signed(b0_i) * nZX0),MUL_A_WIDTH); --32*32 = 64b
+                            nGB0 <= resize(signed(b0_i) * nZX0,MUL_A_WIDTH); --32*32 = 64b
                             nGB1 <= resize(signed(b1_i) * nZX1,MUL_A_WIDTH); 
                             nGB2 <= resize(signed(b2_i) * nZX2,MUL_A_WIDTH);
-                            nGA1 <= signed(a1_i) * nZY1; -- 32*64 = 96b
-                            nGA2 <= signed(a2_i) * nZY2;
+                            nGA1 <= resize(signed(a1_i) * signed(nZY1),MUL_A_WIDTH); -- 32*64 = 96b
+                            nGA2 <= resize(signed(a2_i) * signed(nZY2),MUL_A_WIDTH);
                             state <= truncate;
                         end if;
 
                     when truncate =>
 
-                        nGB0 <= shift_right(b0 * nZX0), FRAC_WIDTH);
-                        nGB1 <= shift_right(b1 * nZX1, FRAC_WIDTH);
-                        nGB2 <= shift_right(b2 * nZX2, FRAC_WIDTH);
-                        nGA1 <= shift_right(a1 * nZX1, FRAC_WIDTH);
-                        nGA2 <= shift_right(a2 * nZX2, FRAC_WIDTH);
+                        nSB0 <= shift_right(nGB0, FRAC_WIDTH);
+                        nSB1 <= shift_right(nGB1, FRAC_WIDTH);
+                        nSB2 <= shift_right(nGB2, FRAC_WIDTH);
+                        nSA1 <= shift_right(nGA1, FRAC_WIDTH);
+                        nSA2 <= shift_right(nGA2, FRAC_WIDTH);
                         state <= sum1;
 
                     when sum1 =>
                         -- Sum up the products, accounting for feedback
-                        nYOUT <= std_logic_vector(signed(nGB0) + signed(nGB1) + signed(nGB2) - signed(nGA1) - signed(nGA2));
+                        nYOUT <= std_logic_vector(nSB0 + nSB1 + nSB2 - nSA1 - nSA2);
                         state <= done;
 
                     when done =>
                         -- Assign the computed value to the output
                         data_i_o <= nYOUT(OUTPUT_WIDTH-1 downto 0);
-                        nZY1     <= nYOUT;
+                        nZY1     <= signed(nYOUT(OUTPUT_WIDTH-1 downto 0));
                         nZY2     <= nZY1;
                         data_en_o <= '1'; -- Signal that output is valid
                         state <= idle; -- Ready for the next input
