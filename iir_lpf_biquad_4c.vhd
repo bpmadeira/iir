@@ -37,17 +37,23 @@ entity iir_lpf_biquad_2c is
         b2         : in signed(COEFF_WIDTH-1 downto 0);
         b2_en      : in std_logic;
         b2_clk     : in std_logic;
-        b2_rst     : in std_logic;
-        o_done     : out std_logic
+        b2_rst     : in std_logic
     );
 end iir_lpf_biquad_2c;
 
 architecture bhv of iir_lpf_biquad_2c is
     type STATE_TYPE is (idle, truncate, sum1, done);
     signal state : STATE_TYPE;
+    constant MUL_WIDTH : integer := COEFF_WIDTH + DATA_WIDTH;
+    constant MUL_A_WIDTH : integer := COEFF_WIDTH + MUL_WIDTH;
 
     -- Input and coefficient signals
     signal nZX0, nZX1, nZX2: signed(DATA_WIDTH-1 downto 0) := (others => '0');
+    signal b0_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+    signal b1_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+    signal b2_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+    signal a1_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
+    signal a2_i: signed(COEFF_WIDTH-1 downto 0) := (others => '0');
 
     -- Intermediate computation signals
     signal nGB0, nGB1, nGB2, nGA1, nGA2: signed(OUTPUT_WIDTH-1 downto 0) := (others => '0');
@@ -73,7 +79,6 @@ begin
                 nYOUT <= (others => '0');
                 data_i_o <= (others => '0');
                 data_en_o <= '0';
-                o_done <= '0';
             else
                 case state is
                     when idle =>
@@ -83,12 +88,17 @@ begin
                             nZX0 <= signed(data_i_i); -- Load current input
                             nZX1 <= nZX0;              -- Shift previous inputs
                             nZX2 <= nZX1;
+                            nGB0 <= resize(signed(b0_i) * nZX0),MUL_A_WIDTH); --32*32 = 64b
+                            nGB1 <= resize(signed(b1_i) * nZX1,MUL_A_WIDTH); 
+                            nGB2 <= resize(signed(b2_i) * nZX2,MUL_A_WIDTH);
+                            nGA1 <= signed(a1_i) * nZY1; -- 32*64 = 96b
+                            nGA2 <= signed(a2_i) * nZY2;
                             state <= truncate;
                         end if;
 
                     when truncate =>
 
-                        nGB0 <= resize(shift_right(b0 * nZX0,FRAC_WIDTH), nGB0'length);
+                        nGB0 <= resize(b0 * nZX0), nGB0'length);
                         nGB1 <= resize(b1 * nZX1, nGB1'length);
                         nGB2 <= resize(b2 * nZX2, nGB2'length);
                         nGA1 <= resize(a1 * nZX1, nGA1'length);
