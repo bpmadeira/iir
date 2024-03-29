@@ -54,86 +54,71 @@ architecture bhv of iir_lpf_real is
 	signal x_0, x_1, x_2: signed(DATA_WIDTH - 1 downto 0);
 	signal y_2: signed(MUL_WIDTH - 1 downto 0);
 	signal b0_m, b1_m, b2_m: signed(MUL_A_WIDTH - 1 downto 0);
+	signal sum1,sum2:(MUL_WIDTH - 1 downto 0);
+	signal sum3,sum4: signed(MUL_A_WIDTH - 1 downto 0);
 	signal a1_m, a2_m: signed(MUL_A_WIDTH - 1 downto 0);
 	signal y_1: signed(MUL_A_WIDTH - 1 downto 0) := (others => '0');
 	signal a2_i, a1_i: signed(COEFF_WIDTH - 1 downto 0) := (others => '0');
 	signal b0_i, b1_i, b2_i: signed(COEFF_WIDTH - 1 downto 0) := (others => '0');
-	
-	-- Add the attribute declaration here
-    attribute dont_touch : string;
-    -- Apply the attribute to the signals
-    attribute dont_touch of x_0 : signal is "true";
-    attribute dont_touch of y_2 : signal is "true";
-    attribute dont_touch of x_1 : signal is "true";
-    attribute dont_touch of y_1 : signal is "true";
-    attribute dont_touch of x_2 : signal is "true";
-
-    
-    
+  
 begin
-	
-    process(data_clk_i) is
-	   begin
-        if rising_edge(data_clk_i) then
-           if data_rst_i = '1' then
-                -- Reset internal states
-                x_0 <= (others => '0');
-                x_1 <= (others => '0');
-                x_2 <= (others => '0');
-                y_1 <= (others => '0');
-                y_2 <= (others => '0');
-                b0_m <= (others => '0');
-                b1_m <= (others => '0');
-                b2_m <= (others => '0');
-                a1_m <= (others => '0');
-                a2_m <= (others => '0');
-                a1_i <= (others => '0');
-                a2_i <= (others => '0');
-                b0_i <= (others => '0');
-                b1_i <= (others => '0');
-                b2_i <= (others => '0');
-            else
-        	-- Coefficients Load
-        	if a1_en = '1' then
-            	a1_i <= a1;
-        	end if;
-        	if a2_en = '1' then
-            	a2_i <= a2;
-        	end if;
-        	if b0_en = '1' then
-            	b0_i <= b0;
-        	end if;
-        	if b1_en = '1' then
-            	b1_i <= b1;
-        	end if;
-        	if b2_en = '1' then
-            	b2_i <= b2;
-        	end if;
-       	 
-        	-- Direct Form I
-        	if data_en_i = '1' then
-            	-- Update FIR values
-            	x_2 <= signed(x_1); -- 32b
-            	x_1 <= signed(x_0); -- 32b
-            	x_0 <= signed(data_i_i); -- 32b
-              y_2 <= signed(y_1(MUL_WIDTH-1 downto 0));
-              b0_m <= resize(shift_right(signed(x_0*b0_i), FRAC_WIDTH), MUL_A_WIDTH); -- 32b * 32b (64b)
-              b1_m <= resize(shift_right(signed(x_1*b1_i), FRAC_WIDTH), MUL_A_WIDTH); -- 32b * 32b (64b)
-              b2_m <= resize(shift_right(signed(x_2*b2_i), FRAC_WIDTH), MUL_A_WIDTH); -- 32b * 32b (64b)
-              a1_m <= shift_right(signed(y_1(MUL_WIDTH-1 downto 0)*a1_i), FRAC_WIDTH);
-              a2_m <= shift_right(signed(y_2(MUL_WIDTH-1 downto 0)*a2_i), FRAC_WIDTH);
-              y_1 <= signed(shift_right(b0_m + b1_m + b2_m - a1_m - a2_m,FRAC_WIDTH)); -- a1_m - a2_m, FRAC_WIDTH)); -- 64bit
 
-            	
-           	 end if;
-           	 
-        	end if;
-    	end if;
+	b0_m <= signed(x_0*b0_i); -- 32b * 32b (64b)
+	b1_m <= signed(x_1*b1_i); -- 32b * 32b (64b)
+	b2_m <= signed(x_2*b2_i); -- 32b * 32b (64b)
+	a1_m <= y_1*a1_i;
+	a2_m <= y_2*a2_i;
+
+	data_i_o <= std_logic_vector();
+	data_en_o <= data_en_i;
+	data_clk_o <= data_clk_i;
+	data_rst_o <= data_rst_i;
+	
+	process(data_clk_i) is
+	begin
+	if rising_edge(data_clk_i) then
+	   if data_rst_i = '1' then
+		-- Reset internal states
+		x_0 <= (others => '0');
+		x_1 <= (others => '0');
+		x_2 <= (others => '0');
+		y_1 <= (others => '0');
+		y_2 <= (others => '0');
+		b0_m <= (others => '0');
+		b1_m <= (others => '0');
+		b2_m <= (others => '0');
+		a1_m <= (others => '0');
+		a2_m <= (others => '0');
+		a1_i <= (others => '0');
+		a2_i <= (others => '0');
+		b0_i <= (others => '0');
+		b1_i <= (others => '0');
+		b2_i <= (others => '0');
+	    else
+		-- Coefficients Load
+		if a1_en = '1' then
+		a1_i <= a1;
+		end if;
+		if a2_en = '1' then
+		a2_i <= a2;
+		end if;
+		if b0_en = '1' then
+		b0_i <= b0;
+		end if;
+		if b1_en = '1' then
+		b1_i <= b1;
+		end if;
+		if b2_en = '1' then
+		b2_i <= b2;
+		end if;
+	 
+		-- Direct Form I
+		if data_en_i = '1' then
+		
+		end if; 
+	    end if;
+	end if;
 	end process;
 
-	data_i_o <= std_logic_vector(y_1(OUTPUT_WIDTH - 1 downto 0));
-    data_en_o <= data_en_i;
-    data_clk_o <= data_clk_i;
-	data_rst_o <= data_rst_i;
 
 end architecture bhv;
