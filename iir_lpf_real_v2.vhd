@@ -54,7 +54,7 @@ architecture bhv of iir_lpf_real is
 	signal x_1, x_2: signed(MUL_WIDTH - 1 downto 0);
 	signal y_2: signed(MUL_WIDTH - 1 downto 0);
 	signal b0_m, b1_m, b2_m: signed(MUL_A_WIDTH - 1 downto 0);
-	signal sum1,sum2:(MUL_WIDTH - 1 downto 0);
+	signal sum1,sum2,out_reg:(MUL_WIDTH - 1 downto 0);
 	signal sub1,sub2,x_0: signed(MUL_A_WIDTH - 1 downto 0);
 	signal a1_m, a2_m: signed(MUL_A_WIDTH - 1 downto 0);
 	signal y_1: signed(MUL_A_WIDTH - 1 downto 0) := (others => '0');
@@ -62,10 +62,6 @@ architecture bhv of iir_lpf_real is
 	signal b0_i, b1_i, b2_i: signed(COEFF_WIDTH - 1 downto 0) := (others => '0');
   
 begin
-
-	
-	
-
 	data_i_o <= std_logic_vector();
 	data_en_o <= data_en_i;
 	data_clk_o <= data_clk_i;
@@ -86,6 +82,7 @@ begin
 		b2_m <= (others => '0');
 		a1_m <= (others => '0');
 		a2_m <= (others => '0');
+		out_reg <= (others => '0');
 		a1_i <= (others => '0');
 		a2_i <= (others => '0');
 		b0_i <= (others => '0');
@@ -108,7 +105,6 @@ begin
 		if b2_en = '1' then
 		b2_i <= b2;
 		end if;
-	 
 		-- Direct Form I
 		if data_en_i = '1' then
 			b0_m <= signed(data_i_i)*b0_i; -- 32b * 32b (64b)
@@ -121,6 +117,7 @@ begin
 			a2_m <= shift_right(y_1,FRAC_WIDTH)(MUL_WIDTH-1 downto 0)*a2_i;
 			y_2 <= x_0 - a2_m;
 			y_1 <= y_2 - a1_m;
+			out_reg <= shift_right(y_1,FRAC_WIDTH)(OUTPUT_WIDTH-1 downto 0)
 		end if; 
 	    end if;
 	end if;
