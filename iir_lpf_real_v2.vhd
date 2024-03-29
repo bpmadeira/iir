@@ -62,7 +62,7 @@ architecture bhv of iir_lpf_real is
 	signal b0_i, b1_i, b2_i: signed(COEFF_WIDTH - 1 downto 0) := (others => '0');
   
 begin
-	data_i_o <= std_logic_vector();
+	data_i_o <= std_logic_vector(out_reg);
 	data_en_o <= data_en_i;
 	data_clk_o <= data_clk_i;
 	data_rst_o <= data_rst_i;
@@ -117,7 +117,7 @@ begin
 			a2_m <= shift_right(y_1,FRAC_WIDTH)(MUL_WIDTH-1 downto 0)*a2_i;
 			y_2 <= x_0 - a2_m;
 			y_1 <= y_2 - a1_m;
-			out_reg <= shift_right(y_1,FRAC_WIDTH)(OUTPUT_WIDTH-1 downto 0)
+			out_reg <= shift_right(y_1,FRAC_WIDTH)(OUTPUT_WIDTH-1 downto 0);
 		end if; 
 	    end if;
 	end if;
