@@ -51,11 +51,11 @@ architecture bhv of iir_lpf_real is
 	----- SATURATION -----
 	
 	----- SIGNALS -----
-	signal x_0, x_1, x_2: signed(DATA_WIDTH - 1 downto 0);
+	signal x_1, x_2: signed(MUL_WIDTH - 1 downto 0);
 	signal y_2: signed(MUL_WIDTH - 1 downto 0);
 	signal b0_m, b1_m, b2_m: signed(MUL_A_WIDTH - 1 downto 0);
 	signal sum1,sum2:(MUL_WIDTH - 1 downto 0);
-	signal sum3,sum4: signed(MUL_A_WIDTH - 1 downto 0);
+	signal sub1,sub2,x_0: signed(MUL_A_WIDTH - 1 downto 0);
 	signal a1_m, a2_m: signed(MUL_A_WIDTH - 1 downto 0);
 	signal y_1: signed(MUL_A_WIDTH - 1 downto 0) := (others => '0');
 	signal a2_i, a1_i: signed(COEFF_WIDTH - 1 downto 0) := (others => '0');
@@ -63,18 +63,15 @@ architecture bhv of iir_lpf_real is
   
 begin
 
-	b0_m <= signed(x_0*b0_i); -- 32b * 32b (64b)
-	b1_m <= signed(x_1*b1_i); -- 32b * 32b (64b)
-	b2_m <= signed(x_2*b2_i); -- 32b * 32b (64b)
-	a1_m <= y_1*a1_i;
-	a2_m <= y_2*a2_i;
+	
+	
 
 	data_i_o <= std_logic_vector();
 	data_en_o <= data_en_i;
 	data_clk_o <= data_clk_i;
 	data_rst_o <= data_rst_i;
 	
-	process(data_clk_i) is
+	process(data_clk_i,data_rst_i) is
 	begin
 	if rising_edge(data_clk_i) then
 	   if data_rst_i = '1' then
@@ -114,7 +111,16 @@ begin
 	 
 		-- Direct Form I
 		if data_en_i = '1' then
-		
+			b0_m <= signed(data_i_i)*b0_i; -- 32b * 32b (64b)
+			b1_m <= signed(data_i_i)*b1_i; -- 32b * 32b (64b)
+			b2_m <= signed(data_i_i)*b2_i; -- 32b * 32b (64b)
+			x_0 <= resize(b0_m + x_1, MUL_A_WIDTH);
+			x_1 <= b1_m + x_2;
+			x_2 <= b2_m;
+		    	a1_m <= shift_right(y_1,FRAC_WIDTH)(MUL_WIDTH-1 downto 0)*a1_i;
+			a2_m <= shift_right(y_1,FRAC_WIDTH)(MUL_WIDTH-1 downto 0)*a2_i;
+			y_2 <= x_0 - a2_m;
+			y_1 <= y_2 - a1_m;
 		end if; 
 	    end if;
 	end if;
