@@ -8,37 +8,32 @@ from scipy import signal
 ### b0, b1, b2 are the FIR part of the filter
 
 # Given filter coefficients
-C = 0.5e-13
-L = 20e-3
-R = 500
+C = 46e-15
+L = 22e-3
+R = 100
 fs = 62.5e6
 f0 = 1 / (2 * np.pi * np.sqrt(L * C))
+print("Resonant Frequency is: ", f0)
 p = 2 * np.pi * f0 / np.tan(np.pi * f0 / fs)
-b2 = 1
+b2 = -1
 b1 = 2
 b0 = 1
 a2 = L * C * p**2 + R * C * p + 1
 a1 = 2 * (1 - L * C * p**2)
 a0 = L * C * p**2 - R * C * p + 1
 
-# b2 = 0.262
-# b1 = -0.476
-# b0 = 0.262
-# a2 = 0
-# a1 = 0
-# a0 = 1
-
 # Normalized
 
-N = 30
-F = 30
+N = 16
+F = 16
+G2 = 1
 
 b2n = b2/a0
 b1n = b1/a0
 b0n = b0/a0
-a1n = a1/a0
-a2n = a2/a0
-a0n = a0/a0
+a1n = G2*a1/a0
+a2n = G2*a2/a0
+a0n = G2*a0/a0
 
 # Scaled coefficients
 a0_16b = round(a0n * 2**N)
@@ -49,23 +44,23 @@ b1_16b = round(b1n * 2**F)
 b2_16b = round(b2n * 2**F)
 
 # Scaled coefficients
-q_a0_16b = round(a0_16b/2**F,7)
-q_a1_16b = round(a1_16b/2**F,7)
-q_a2_16b = round(a2_16b/2**F,7)
-q_b0_16b = round(b0_16b/2**F,7)
-q_b1_16b = round(b1_16b/2**F,7)
-q_b2_16b = round(b2_16b/2**F,7)
+q_a0_16b = round(a0_16b/2**N,5)
+q_a1_16b = round(a1_16b/2**N,5)
+q_a2_16b = round(a2_16b/2**N,5)
+q_b0_16b = round(b0_16b/2**F,5)
+q_b1_16b = round(b1_16b/2**F,5)
+q_b2_16b = round(b2_16b/2**F,5)
 
-e_a0_16b = a0n - round(a0_16b/2**F,7)
-e_a1_16b = a1n - round(a1_16b/2**F,7)
-e_a2_16b = a2n - round(a2_16b/2**F,7)
+e_a0_16b = a0n - round(a0_16b/2**N,7)
+e_a1_16b = a1n - round(a1_16b/2**N,7)
+e_a2_16b = a2n - round(a2_16b/2**N,7)
 e_b0_16b = b0n - round(b0_16b/2**F,7)
 e_b1_16b = b1n - round(b1_16b/2**F,7)
 e_b2_16b = b2n - round(b2_16b/2**F,7)
 
 # Calculating zeros and poles
-zeros = np.roots([b2_16b, b1_16b, b0_16b])
-poles = np.roots([a2_16b, a1_16b, a0_16b])
+zeros = np.roots([b2n, b1n, b0n])
+poles = np.roots([a2n, a1n, a0n])
 
 qzeros = np.roots([q_b2_16b, q_b1_16b, q_b0_16b])
 qpoles = np.roots([q_a2_16b, q_a1_16b, q_a0_16b])
@@ -125,13 +120,10 @@ print( "Quantization Error: \n"
 
 
 # Calculate frequency response
-w, h = signal.freqz([b2_16b, b1_16b, b0_16b], [a2_16b, a1_16b, a0_16b])
-w2, h2 = signal.freqz([q_b2_16b, q_b1_16b, q_b0_16b], [q_a2_16b, q_a1_16b, q_a0_16b])
+w, h = signal.freqz([b2_16b, b1_16b, b0_16b], [a2_16b, a1_16b, a0_16b],worN=200000)
+w2, h2 = signal.freqz([q_b2_16b, q_b1_16b, q_b0_16b], [q_a2_16b, q_a1_16b, q_a0_16b],worN=200000)
 frequencies = w * fs/ (2 * np.pi)
 
-bin1 = "01110000000000000111000000000000011100000000000001110000000000000111000000000000011100000000000001110000000000000111000000000000"
-dec = int(bin1,2)
-print(dec)
 
 # Plot
 plt.figure(2)
@@ -143,4 +135,3 @@ plt.xlabel('Normalized Frequency (x π rad/sample)')
 plt.ylabel('Amplitude (dB)')
 plt.grid()
 plt.show()
-
