@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Game Stats & Revenue Distribution</title>
+  <!-- Load Chart.js from a CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #fff; /* Adjust background if needed */
+      font-family: Arial, sans-serif;
+    }
+    .chart-container {
+      width: 100%;
+      max-width: 800px;
+      margin: auto;
+      margin-bottom: 40px;
+    }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: auto !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Container for the match statistics chart -->
+  <div class="chart-container">
+    <canvas id="statsChart"></canvas>
+  </div>
+  <!-- Container for the revenue distribution chart -->
+  <div class="chart-container">
+    <canvas id="revenueChart"></canvas>
+  </div>
+
+  <script>
+    // ----- Injected Data from Glide -----
+    // Replace the placeholders below with your exact column names from Glide.
+    const homeShots           = Number("[home_shots]");
+    const awayShots           = Number("[away_shots]");
+    const homeShotsOnGoal     = Number("[home_shots_on_goal]");
+    const awayShotsOnGoal     = Number("[away_shots_on_goal]");
+    const homeGoalChances     = Number("[home_goal_chances]");
+    const awayGoalChances     = Number("[away_goal_chances]");
+    const homeDuelsWon        = Number("[home_duels_won]");
+    const awayDuelsWon        = Number("[away_duels_won]");
+    const homeSaves           = Number("[home_saves]");
+    const awaySaves           = Number("[away_saves]");
+    const homeCorners         = Number("[home_corners]");
+    const awayCorners         = Number("[away_corners]");
+    const homeFouls           = Number("[home_fouls]");
+    const awayFouls           = Number("[away_fouls]");
+    const homeYellows         = Number("[home_yellows]");
+    const awayYellows         = Number("[away_yellows]");
+    const homeReds            = Number("[home_reds]");
+    const awayReds            = Number("[away_reds]");
+    const homeTotalActions    = Number("[home_total_actions]");
+    const awayTotalActions    = Number("[away_total_actions]");
+    
+    // For revenue distribution: total revenue from the game.
+    const totalRevenue        = Number("[RevenueCalculated]");
+
+    // ----- Build Data Arrays for the Stats Chart -----
+    const statLabels = [
+      "Shots",
+      "Shots on Goal",
+      "Goal Chances",
+      "Duels Won",
+      "Saves",
+      "Corners",
+      "Fouls",
+      "Yellows",
+      "Reds",
+      "Total Actions"
+    ];
+
+    const homeData = [
+      homeShots,
+      homeShotsOnGoal,
+      homeGoalChances,
+      homeDuelsWon,
+      homeSaves,
+      homeCorners,
+      homeFouls,
+      homeYellows,
+      homeReds,
+      homeTotalActions
+    ];
+
+    const awayData = [
+      awayShots,
+      awayShotsOnGoal,
+      awayGoalChances,
+      awayDuelsWon,
+      awaySaves,
+      awayCorners,
+      awayFouls,
+      awayYellows,
+      awayReds,
+      awayTotalActions
+    ];
+
+    // ----- Create the Horizontal Stacked Bar Chart for Match Stats -----
+    const ctxStats = document.getElementById("statsChart").getContext("2d");
+    new Chart(ctxStats, {
+      type: "bar",
+      data: {
+        labels: statLabels,
+        datasets: [
+          {
+            label: "Home",
+            data: homeData,
+            backgroundColor: "rgba(231, 76, 60, 0.7)" // Red-ish
+          },
+          {
+            label: "Away",
+            data: awayData,
+            backgroundColor: "rgba(52, 152, 219, 0.7)" // Blue-ish
+          }
+        ]
+      },
+      options: {
+        indexAxis: "y",  // Horizontal bars
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true
+          },
+          y: {
+            stacked: true
+          }
+        },
+        plugins: {
+          legend: {
+            position: "top"
+          },
+          tooltip: {
+            enabled: true
+          }
+        }
+      }
+    });
+
+    // ----- Create the Revenue Distribution Pie Chart -----
+    // Calculate the distribution: 95% and 5%
+    const revenue95 = totalRevenue * 0.95;
+    const revenue5  = totalRevenue * 0.05;
+
+    const ctxRevenue = document.getElementById("revenueChart").getContext("2d");
+    new Chart(ctxRevenue, {
+      type: "pie",
+      data: {
+        labels: ["Club Revenue (95%)", "Other (5%)"],
+        datasets: [{
+          data: [revenue95, revenue5],
+          backgroundColor: [
+            "rgba(46, 204, 113, 0.8)",  // Green-ish
+            "rgba(155, 89, 182, 0.8)"    // Purple-ish
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: "bottom"
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
